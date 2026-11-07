@@ -29,7 +29,8 @@ jobs:
           bash tests/test.sh
           python3 tests/service_test.py
           python3 tests/request_test.py
-          shellcheck src/*.sh tests/*.sh
+          python3 tests/release_test.py
+          shellcheck src/*.sh scripts/*.sh tests/*.sh
           /tmp/actionlint
           zizmor --offline .
           python3 scripts/check-public.py

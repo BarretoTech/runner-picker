@@ -68,6 +68,7 @@ runs:
       uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4
       with:
         oauth-client-id: ${{ inputs.tailnet-client-id }}
+        audience: api.tailscale.com/${{ inputs.tailnet-client-id }}
         tags: ${{ inputs.tailnet-tags }}
         tailscaled-args: --tun=userspace-networking --outbound-http-proxy-listen=localhost:1055
         use-cache: 'false'

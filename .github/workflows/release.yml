@@ -29,8 +29,13 @@ jobs:
           bash tests/test.sh
           python3 tests/service_test.py
           python3 tests/request_test.py
+          python3 tests/release_test.py
           python3 scripts/check-public.py
           gh release create "$TAG" --repo "$REPOSITORY" --verify-tag --generate-notes
+          if ! bash scripts/is-latest-release.sh "$TAG"; then
+            echo '::notice::Published release without moving the major tag: a newer version exists.'
+            exit 0
+          fi
           if gh api "repos/$REPOSITORY/git/ref/tags/$major" >/dev/null 2>&1; then
             gh api --method PATCH "repos/$REPOSITORY/git/refs/tags/$major" -f sha="$sha" -F force=true
           else

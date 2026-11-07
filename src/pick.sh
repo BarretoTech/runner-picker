@@ -42,6 +42,13 @@ if [[ -n $OVERFLOW ]]; then OVERFLOW=$(jq -sce "select(length == 1) | .[0] | sel
 [[ $RUNNER_SCOPE == org || $RUNNER_SCOPE == repo ]] || invalid runner-scope
 [[ $MIN_IDLE =~ ^[1-9][0-9]{0,5}$ ]] || invalid min-idle
 [[ $WEIGHT =~ ^[1-9][0-9]{0,5}$ ]] || invalid weight
+http_get() {
+  local destination=$1 status
+  shift
+  status=$(curl --silent --fail --connect-timeout 5 --max-time 20 \
+    --output "$destination" --write-out '%{http_code}' "$@") || return 1
+  [[ $status == 200 ]]
+}
 choose_overflow() {
   if [[ -n $OVERFLOW ]]; then result=$OVERFLOW; choice=overflow; else result=$HOSTED; choice=hosted; fi
 }
@@ -57,10 +64,10 @@ if [[ $SOURCE == github ]]; then
     if [[ -n ${PICKER_FIXTURE_DIR:-} ]]; then
       cp "$PICKER_FIXTURE_DIR/page-$page.json" "$work/page.json"
     else
-      curl --silent --fail --connect-timeout 5 --max-time 20 \
+      http_get "$work/page.json" \
         --header "Authorization: Bearer $TOKEN" --header 'Accept: application/vnd.github+json' \
         --header 'X-GitHub-Api-Version: 2022-11-28' \
-        "$api/$endpoint/actions/runners?per_page=100&page=$page" > "$work/page.json"
+        "$api/$endpoint/actions/runners?per_page=100&page=$page" || fail
     fi
     jq -sce 'select(length == 1) | .[0]' "$work/page.json" > "$work/validated.json"
     mv "$work/validated.json" "$work/page.json"
@@ -86,17 +93,20 @@ else
     cp "$PICKER_SERVICE_FIXTURE" "$work/service.json"
   else
     query=(--data-urlencode "labels=$(jq -r 'join(",")' <<< "$SELF_HOSTED")" --data-urlencode "weight=$WEIGHT")
-    [[ -z ${GITHUB_REPOSITORY:-} ]] || query+=(--data-urlencode "org=${GITHUB_REPOSITORY%%/*}")
-    [[ -z $OVERFLOW ]] || query+=(--data-urlencode "overflow=$(jq -r 'if type == "array" then join(",") else . end' <<< "$OVERFLOW")")
-    curl --silent --fail --connect-timeout 5 --max-time 20 "${proxy[@]}" --get "${query[@]}" "$CAPACITY_URL" > "$work/service.json"
+    if [[ -n $OVERFLOW ]]; then
+      repository=${GITHUB_REPOSITORY:-}
+      query+=(--data-urlencode "org=${repository%%/*}"
+        --data-urlencode "blacksmith=$(jq -r 'if type == "array" then .[0] else . end' <<< "$OVERFLOW")")
+    fi
+    http_get "$work/service.json" "${proxy[@]}" --get "${query[@]}" "$CAPACITY_URL" || fail
   fi
   jq -sce 'select(length == 1) | .[0]' "$work/service.json" > "$work/validated.json"
   mv "$work/validated.json" "$work/service.json"
-  jq -e 'type == "object" and (.choice == "self-hosted" or .choice == "overflow" or .choice == "hosted") and (.reason | type == "string" and length > 0 and length <= 500 and (test("[\\x00-\\x1f\\x7f%]") | not))' "$work/service.json" >/dev/null
+  jq -e 'type == "object" and (.choice == "self-hosted" or .choice == "blacksmith" or .choice == "hosted") and (.reason | type == "string" and length > 0 and length <= 500 and (test("[\\x00-\\x1f\\x7f%]") | not))' "$work/service.json" >/dev/null
   choice=$(jq -r .choice "$work/service.json")
   reason=$(jq -r .reason "$work/service.json")
   case $choice in
-    overflow) [[ -n $OVERFLOW ]] || fail; result=$OVERFLOW ;;
+    blacksmith) [[ -n $OVERFLOW ]] || fail; result=$OVERFLOW; choice=overflow ;;
     hosted) result=$HOSTED ;;
   esac
 fi

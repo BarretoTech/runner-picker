@@ -37,7 +37,7 @@ def decide(labels, weight, overflow, org):
         if not runners or page >= 1000:
             raise ValueError("incomplete runner listing")
         page += 1
-    return {"choice": "self-hosted" if idle >= weight else "overflow" if overflow else "hosted",
+    return {"choice": "self-hosted" if idle >= weight else "blacksmith" if overflow else "hosted",
             "reason": "idle runners available" if idle >= weight else "insufficient idle runners"}
 
 
@@ -56,7 +56,7 @@ class Handler(BaseHTTPRequestHandler):
             weight = int(query.get("weight", ["1"])[0])
             if not all(labels) or not 1 <= weight <= 999999:
                 raise ValueError("invalid request")
-            result = decide(labels, weight, query.get("overflow", [""])[0], query.get("org", [""])[0])
+            result = decide(labels, weight, query.get("blacksmith", [""])[0], query.get("org", [""])[0])
             body = json.dumps(result).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")

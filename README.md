@@ -53,7 +53,7 @@ Use the same two-job structure, replacing the picker step with:
 
 Run your own service implementing the contract below. A [dependency-free Python example](examples/capacity-service/) queries GitHub on the server and keeps the API token there.
 
-For an optional private service over Tailscale, add `tailnet-client-id: ${{ vars.CAPACITY_NETWORK_CLIENT }}` and `tailnet-tags: tag:ci`. Configure a Tailscale federated identity trusting the caller repository/workflow and its tags, then grant that identity access only to the service. Give the picker job `permissions: {contents: read, id-token: write}`. No Tailscale client secret is required. The SHA-pinned upstream action runs in userspace mode; curl uses its HTTP proxy at `localhost:1055` only for the capacity request. Connection failure falls back to self-hosted. Do not run multiple network setup actions in the same job. Plain HTTP is supported for private networks; use HTTPS for public services.
+For an optional private service over Tailscale, add `tailnet-client-id: ${{ vars.CAPACITY_NETWORK_CLIENT }}` and `tailnet-tags: tag:ci`. The action supplies audience `api.tailscale.com/<client-id>`; configure that exact audience in the identity. Configure a Tailscale federated identity trusting the caller repository/workflow and its tags, then grant that identity access only to the service. Give the picker job `permissions: {contents: read, id-token: write}`. No Tailscale client secret is required. The SHA-pinned upstream action runs in userspace mode; curl uses its HTTP proxy at `localhost:1055` only for the capacity request. Connection failure falls back to self-hosted. Do not run multiple network setup actions in the same job. Plain HTTP is supported for private networks; use HTTPS for public services.
 
 ### Service contract
 
@@ -63,10 +63,10 @@ The action performs a GET on `capacity-url` with URL-encoded parameters:
 | --- | --- |
 | `labels` | Required self-hosted labels, comma-separated |
 | `weight` | Positive integer request weight |
-| `org` | Optional caller repository owner |
-| `overflow` | Optional alternate label, or comma-separated labels for an array |
+| `org` | Caller repository owner; sent only with an overflow offer |
+| `blacksmith` | Optional overflow offer; a string target, or the first label of an array target |
 
-Labels used with a service must not contain commas. The endpoint returns HTTP 200 and JSON `{"choice":"self-hosted","reason":"idle runners available"}`. Valid choices are `self-hosted`, `overflow`, and `hosted`. `overflow` selects the configured overflow input; selecting it without an input is an error. `hosted` selects the hosted input. The reason must be a nonempty, single-line string of at most 500 characters, without percent or control characters. Malformed responses, non-success HTTP status and timeouts return the self-hosted fallback. The action never sends its `token` input to the service. Protect the service through network access controls or your authenticated gateway.
+Labels used with a service must not contain commas. The endpoint returns HTTP 200 and JSON `{"choice":"self-hosted","reason":"idle runners available"}`. Wire choices are `self-hosted`, `blacksmith`, and `hosted`. The `blacksmith` wire value selects the configured `overflow` input and is exposed as public output `choice: overflow`; selecting it without an input is an error. The provider-specific wire name is retained for service compatibility, even when the configured target uses another provider. `hosted` selects the hosted input. The reason must be a nonempty, single-line string of at most 500 characters, without percent or control characters. Malformed responses, any HTTP status other than 200 and timeouts return the self-hosted fallback. The action never sends its `token` input to the service. Protect the service through network access controls or your authenticated gateway.
 
 ## Inputs
 
@@ -84,7 +84,7 @@ All runs-on inputs are JSON, including strings: use `'"ubuntu-latest"'`, not `'u
 | `capacity-url` | empty | Required HTTP(S) endpoint for service source |
 | `tailnet-client-id` | empty | Optional Tailscale federated identity client ID |
 | `tailnet-tags` | `tag:ci` | Comma-separated identity tags |
-| `weight` | `1` | Service request weight |
+| `weight` | `1` | Service request weight, interpreted by the service |
 
 Integers must be between 1 and 999999. Invalid inputs produce a clear error annotation and successful action completion with self-hosted fallback. If `self-hosted` itself is invalid, the only usable fallback is `["self-hosted"]`.
 

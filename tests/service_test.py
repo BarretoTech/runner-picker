@@ -24,7 +24,7 @@ class PolicyTest(unittest.TestCase):
             self.assertEqual(request.call_count, 2)
 
     def test_busy_overflow_and_hosted(self):
-        for overflow, expected in [("example-overflow", "overflow"), ("", "hosted")]:
+        for overflow, expected in [("example-overflow", "blacksmith"), ("", "hosted")]:
             with patch.dict(os.environ, RUNNER_OWNER="example-org", RUNNER_TOKEN="test"), patch.object(
                 service, "urlopen", return_value=io.BytesIO(b'{"total_count":1,"runners":[{"status":"online","busy":true,"labels":[]}]}')
             ):

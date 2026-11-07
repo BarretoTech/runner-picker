@@ -38,7 +38,7 @@ MIN_IDLE=0 check 'invalid threshold' self-hosted
 SOURCE=unknown check 'invalid source' self-hosted
 PICKER_FIXTURE_DIR='' check 'missing token' self-hosted
 export SOURCE=service CAPACITY_URL=https://capacity.example/capacity PICKER_SERVICE_FIXTURE="$work/service.json"
-printf '{"choice":"overflow","reason":"pool busy"}' > "$PICKER_SERVICE_FIXTURE"
+printf '{"choice":"blacksmith","reason":"pool busy"}' > "$PICKER_SERVICE_FIXTURE"
 OVERFLOW='"example-overflow"' check 'service overflow' overflow
 check 'unconfigured service overflow' self-hosted
 printf '{"choice":"hosted","reason":"pool busy"}' > "$PICKER_SERVICE_FIXTURE"
