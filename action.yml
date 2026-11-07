@@ -1,0 +1,90 @@
+name: Runner Picker
+description: Choose a runner pool before a downstream job is queued
+branding:
+  icon: shuffle
+  color: blue
+inputs:
+  self-hosted:
+    description: "JSON array of required self-hosted labels"
+    required: false
+    default: "[\"self-hosted\"]"
+  hosted:
+    description: "Final overflow runs-on as a JSON string or array"
+    required: false
+    default: "\"ubuntu-latest\""
+  overflow:
+    description: "Optional runs-on JSON preferred over hosted"
+    required: false
+    default: ""
+  source:
+    description: "Decision source: github or service"
+    required: false
+    default: "github"
+  token:
+    description: "GitHub App installation token or fine-grained PAT that can read runners"
+    required: false
+    default: ""
+  runner-scope:
+    description: "Runner API scope: org or repo"
+    required: false
+    default: "org"
+  min-idle:
+    description: "Minimum matching idle runners for the GitHub source"
+    required: false
+    default: "1"
+  capacity-url:
+    description: "Capacity service GET endpoint"
+    required: false
+    default: ""
+  tailnet-client-id:
+    description: "Optional Tailscale federated identity client ID"
+    required: false
+    default: ""
+  tailnet-tags:
+    description: "Comma-separated Tailscale tags"
+    required: false
+    default: "tag:ci"
+  weight:
+    description: "Positive integer capacity request weight"
+    required: false
+    default: "1"
+outputs:
+  runs-on:
+    description: JSON runs-on value for fromJSON
+    value: ${{ steps.pick.outputs.runs-on }}
+  choice:
+    description: self-hosted, overflow, or hosted
+    value: ${{ steps.pick.outputs.choice }}
+  reason:
+    description: Human-readable decision or fallback reason
+    value: ${{ steps.pick.outputs.reason }}
+runs:
+  using: composite
+  steps:
+    - name: Connect optional private network
+      id: tailnet
+      if: inputs.source == 'service' && inputs.tailnet-client-id != ''
+      continue-on-error: true
+      uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4
+      with:
+        oauth-client-id: ${{ inputs.tailnet-client-id }}
+        tags: ${{ inputs.tailnet-tags }}
+        tailscaled-args: --tun=userspace-networking --outbound-http-proxy-listen=localhost:1055
+        use-cache: 'false'
+    - name: Pick runner
+      id: pick
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        SELF_HOSTED: ${{ inputs.self-hosted }}
+        HOSTED: ${{ inputs.hosted }}
+        OVERFLOW: ${{ inputs.overflow }}
+        SOURCE: ${{ inputs.source }}
+        TOKEN: ${{ inputs.token }}
+        RUNNER_SCOPE: ${{ inputs.runner-scope }}
+        MIN_IDLE: ${{ inputs.min-idle }}
+        CAPACITY_URL: ${{ inputs.capacity-url }}
+        TAILNET_CLIENT_ID: ${{ inputs.tailnet-client-id }}
+        TAILNET_OUTCOME: ${{ steps.tailnet.outcome }}
+        WEIGHT: ${{ inputs.weight }}
+      run: bash "$ACTION_PATH/src/pick.sh"

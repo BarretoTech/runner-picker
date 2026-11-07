@@ -1,0 +1,38 @@
+name: Release
+on:
+  push:
+    tags: ['v*.*.*']
+permissions:
+  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Validate release and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          [[ "$TAG" =~ ^v([0-9]+)\.[0-9]+\.[0-9]+$ ]] || exit 1
+          major="v${BASH_REMATCH[1]}"
+          sha=$(git rev-parse HEAD)
+          bash tests/test.sh
+          python3 tests/service_test.py
+          python3 tests/request_test.py
+          python3 scripts/check-public.py
+          gh release create "$TAG" --repo "$REPOSITORY" --verify-tag --generate-notes
+          if gh api "repos/$REPOSITORY/git/ref/tags/$major" >/dev/null 2>&1; then
+            gh api --method PATCH "repos/$REPOSITORY/git/refs/tags/$major" -f sha="$sha" -F force=true
+          else
+            gh api --method POST "repos/$REPOSITORY/git/refs" -f ref="refs/tags/$major" -f sha="$sha"
+          fi
