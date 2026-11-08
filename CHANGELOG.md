@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-08
+
 ### Added
 - Composite runner selection with GitHub and capacity service sources.
 - Optional federated private networking, reference service, tests and maintenance workflows.
