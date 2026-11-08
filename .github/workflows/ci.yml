@@ -23,7 +23,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y shellcheck
           gh release download v1.7.7 --repo rhysd/actionlint --dir /tmp --pattern actionlint_1.7.7_linux_amd64.tar.gz
-          gh release download v1.7.7 --repo rhysd/actionlint --dir /tmp --pattern actionlint_1.7.7_checksums.txt --output /tmp/checksums.txt
+          gh release download v1.7.7 --repo rhysd/actionlint --pattern actionlint_1.7.7_checksums.txt --output /tmp/checksums.txt
           (cd /tmp && sha256sum --check --ignore-missing checksums.txt)
           tar -xzf /tmp/actionlint_1.7.7_linux_amd64.tar.gz -C /tmp actionlint
           python -m pip install zizmor==1.31.1
